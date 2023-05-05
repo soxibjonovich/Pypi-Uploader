@@ -5,8 +5,7 @@
 
 <a href="README_RU.md" >RU</a>
 <a href="README_EN.md" >ENG</a>
-
-</br></br>
+</br>
 
 This program is written using the <a href="https://pypi.org/project/PySimpleGUI/">PySimpleGUI</a> library.
 
