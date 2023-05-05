@@ -1,10 +1,8 @@
 # Pypi-uploader
 #### Upload your Python libraries to PyPi with a beautiful interface.
 
-</br>
-
-<a href="README_RU.md" >RU</a>
-<a href="README.md" >ENG</a>
+<a href="README_RU.md" ><img src="https://emojio.ru/images/twitter-64/1f1f7-1f1fa.png" width="30" height="30"></img></a>
+<a href="README.md" ><img src="https://emojio.ru/images/twitter-64/1f1fa-1f1f8.png" width="30" height="30"></img></a>
 </br>
 
 This program is written using the <a href="https://pypi.org/project/PySimpleGUI/">PySimpleGUI</a> library.
