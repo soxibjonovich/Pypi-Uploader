@@ -3,7 +3,9 @@
 
 </br>
 
-<a href="README_RU.md" ><img src="https://emojio.ru/images/twitter-64/1f1f7-1f1fa.png" width="30" height="30"></img></a>
+<a href="README_RU.md" >RU</a>
+<a href="README_EN.md" >ENG</a>
+
 </br></br>
 
 This program is written using the <a href="https://pypi.org/project/PySimpleGUI/">PySimpleGUI</a> library.
