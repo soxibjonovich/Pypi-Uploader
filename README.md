@@ -25,12 +25,12 @@ After uploading, program can also clean up all generated files.
          |__Other_files... 
 ```
 
-<img src="Image.png"></img>
-
 #### If you are using api key:
 
 **Username:** ```__token__``` </br>
 **Password:** *The token value, including the ```pypi-``` prefix*
+
+![Image](https://user-images.githubusercontent.com/128493258/236375512-8fac376f-69a3-48e6-9662-1b6bac0d3a08.png)
 
 ### Possible mistakes:
 <ul>
