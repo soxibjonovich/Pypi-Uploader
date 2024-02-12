@@ -2,6 +2,8 @@ import sys
 import os
 import shutil
 from time import sleep
+import json
+from tkinter.filedialog import askopenfilename, asksaveasfilename
 try:
 	import PySimpleGUI as sg
 except:
@@ -23,11 +25,39 @@ try:
 except:
 	os.system("pip install wheel")
 
+
+def infinite(start=0):
+	while True:
+		yield start
+		start += 1
+
+def load_project(window, filename):
+	with open(filename, 'r', encoding='utf-8') as file:
+		data = json.load(file)
+	for key, value in data.items():
+		if key in window.AllKeysDict:
+			window[key].update(value)
+		else:
+			if key == "dependencies":
+				add_dependencies(window, value)
+
+def save_project(filename, data):
+	allowed_keys = ['folder', 'package_name', 'version', 'description', 'readme', 'username', 'email', 'github']
+	final = {key: value for key, value in data.items() if key in allowed_keys and value}
+
+	dependencies = {value for key, value in data.items() if isinstance(key, tuple) and 'dependency' in key[0] and value}
+	if len(dependencies) > 0:
+		final["dependencies"] = list(dependencies)
+
+	with open(filename, 'w', encoding='utf-8') as file:
+		file.write(json.dumps(final, indent=4))
+
+
 sg.theme('DarkAmber')
 window_title = "Pypi uploader"
 
 main = [[sg.T("Select project folder: ", font='16'), sg.FolderBrowse("Browse", target='folder', font='12')],
-		[sg.Input("", size=(40,1), key="folder")],
+		[sg.Input("", size=(40,1), key="folder", enable_events=True)],
 		[sg.T("Important!\nThis folder should contain the __init__.py file!\n", text_color="red", font='Courier 12')],
 		[sg.T("Load to:", font='16')],
 		[sg.Radio("Pypi", 0, default=False, key="pypi", font='Segoe 12'), sg.Radio("Test Pypi", 0, default=True, key="test_pypi", font='Segoe 12')],[sg.T("")],
@@ -37,45 +67,115 @@ main = [[sg.T("Select project folder: ", font='16'), sg.FolderBrowse("Browse", t
 		[sg.T("Select README.md file: ", font='12')],
 		[sg.Input("", size=(37,1), key="readme"), sg.FileBrowse("Browse", file_types=(("Markdown File", "*.md"),), target='readme', font='12'), sg.T("(Optional)", text_color="yellow", font='Arial 12')],[sg.T("")],
 		[sg.T("Your username:   ", font='12'), sg.Input("", size=(26,1), key="username")],
-		[sg.T("Your password:   ", font='12'), sg.Input("", size=(26,1), key="password", password_char='*'),sg.I("", size=(26,1),visible=False, key="pass_show"), sg.B("Show", key="Show")],
+		[sg.T("Your password:   ", font='12', key="password_text"), sg.Input("", size=(26,1), key="password", password_char='*'), sg.B("Show", key="show-hide")],
+		[sg.Checkbox("token", font='12', key="token", enable_events=True)],
 		[sg.T("Your email:          ", font='12'), sg.Input("", size=(26,1), key="email")],
 		[sg.T("Github repository: ", font='12'), sg.Input("", size=(26,1), key="github"), sg.T("(Optional)", text_color="yellow", font='Arial 12')],[sg.T("")],
+		[sg.T("Required Dependencies: ", font='12'), sg.Button(' + ', key="add_dependency")],
+		[sg.Col([], scrollable=True, vertical_scroll_only=True, size=(500, 0), key='-dependencies-')],[sg.T("")],
 		[sg.T("Delete all created files, folders and archives after upload?", font='Segoe 14')],
 		[sg.Radio("Yes", 2, default=False, key="delete_yes", font='Segoe 12'), sg.Radio("No", 2, default=True, key="delete_no", font='Segoe 12')],
-		[sg.T("")],[sg.T("						"), sg.OK("Upload", font='12')]]
+		[sg.Push(), sg.OK("Upload", font='12'), sg.Push()]]
 
 
-layout = [[sg.Column(main, size=(500,600), scrollable=True, vertical_scroll_only=True)]]
+layout = [
+	[sg.Menu([['Project', ['Import', 'Export']], ['Requirements', ['Select file::requirements']]], text_color=sg.theme_text_color(), background_color=sg.theme_background_color())],
+	[sg.Column(main, size=(500,600), scrollable=True, vertical_scroll_only=True, key="__main__")]
+]
 
-window = sg.Window(window_title, layout)
+window = sg.Window(window_title, layout, finalize=True)
+
+def button_pointer():
+	[el.set_cursor("hand2") for el in window.element_list() if isinstance(el, sg.Button)]
+
+def update_window_height(root, scrollzone):
+	scrollzone.contents_changed()
+	scrollzone.Widget.pack_propagate(0)
+	new_height = scrollzone.TKColFrame.TKFrame.winfo_reqheight()
+	scrollzone.set_size((495, min(180, new_height)))
+	scrollzone.widget.canvas.yview_moveto(1)
+	
+	window_height = root.TKColFrame.TKFrame.winfo_reqheight()
+	root.set_size((500, window_height))
+
+def add_dependencies(window, array=None):
+	if not array: array = [""]
+	for value in array:
+		item_num = next(dep_index)
+		window.extend_layout(window['-dependencies-'],[[sg.pin(
+			sg.Col([[sg.B(sg.SYMBOL_X, k=('remove_dependency', item_num), border_width=0, button_color=(sg.theme_text_color(), sg.theme_background_color())),
+					 sg.Input(value, size=(37,1), k=('dependency', item_num)),
+			]], k=('dependency_item', item_num)))
+		]])
+	window.refresh()
+	update_window_height(window['__main__'], window['-dependencies-'])
+	button_pointer()
+
+def load_requirements(window, file):
+	with open(file, 'r') as f:
+		requires = map(lambda x: x.strip(), f.readlines())
+		add_dependencies(window, requires)
+
+button_pointer()
+dep_index = infinite(1)
 showing = False
+if os.path.exists("requirements.txt"): load_requirements(window, "requirements.txt")
+
 while True:
 	event, values = window.read()
 
 	if event == sg.WIN_CLOSED:
 		sys.exit()
 
-	if event == "Show":
+	if event == "show-hide":
 		showing = not showing
 		if showing == True:
-			window['pass_show'].update(values["password"], visible=True)
-			window['password'].update(visible=False)
-			window["Show"].update("Hide")
+			window['password'].update(password_char='')
+			window["show-hide"].update("Hide")
 		else:
-			window['pass_show'].update(visible=False)
-			window['password'].update(values["pass_show"], visible=True)
-			window["Show"].update("Show")
+			window['password'].update(password_char="*")
+			window["show-hide"].update("Show")
+
+	elif event == "token":
+		if values["token"]:
+			window["password_text"].update("Your API token:   ")
+		else:
+			window["password_text"].update("Your password:   ")
+
+	elif event == "folder":
+		req_file = os.path.join(values["folder"], "requirements.txt")
+		if os.path.exists(req_file):
+			load_requirements(window, req_file)
+
+	elif event == "Select file::requirements":
+		file = askopenfilename(filetypes=[("Requirements", "*.txt"), ("All files", "*.*")])
+		if file: load_requirements(window, file)
+
+	elif event == "add_dependency":
+		add_dependencies(window)
+	
+	elif event[0] == 'remove_dependency':
+		window[('dependency_item', event[1])].update(visible=False)
+		window.refresh()
+		update_window_height(window['__main__'], window['-dependencies-'])
+
 
 	if event == "Upload":
 		break
+	elif event == "Import":
+		file = askopenfilename(filetypes=[("Project config", "*.build *.config *.json"), ("All files", "*.*")])
+		if file: load_project(window, file)
+
+	elif event == "Export":
+		file = asksaveasfilename(defaultextension='.build', filetypes=[(".build", ".build"), (".config", ".config"), (".json", ".json")])
+		if file: save_project(file, values)
 
 upload_to_pypi = values["pypi"]
 upload_to_test_pypi = values["test_pypi"]
 username = values["username"]
-if showing == True:
-	password = values["pass_show"]
-else:
-	password = values["password"]
+password = values["password"]
+userlogin = "__token__" if values["token"] else values["username"]
+dependencies = {value.strip() for key, value in values.items() if isinstance(key, tuple) and 'dependency' in key[0] and value.strip()}
 
 delete_temp_files = False
 if values["delete_yes"] == True:
@@ -89,12 +189,6 @@ for i in range (len(path)-1):
 	if i == len(path)-1:
 		break
 	folder += "/"
-
-
-required = []
-if os.path.exists('requirements.txt'):
-	with open('requirements.txt', 'r') as file:
-		required = file.readlines()
 
 comand = "import setuptools\n"
 if values["readme"] != "":
@@ -116,9 +210,14 @@ if values["github"] != "":
 	comand += "	url='" + str(values["github"]) + "',\n"
 
 comand += "	packages=['" + str(path[len(path)-1]) + "'],\n"
+
+if len(dependencies) > 0:
+	comand += "	install_requires=["
+	comand += ', '.join(f'"{item}"' for item in dependencies)
+	comand += "],\n"
+
+comand += "	include_package_data=True,\n"
 comand += '	classifiers=[\n		"Programming Language :: Python :: 3",\n		"License :: OSI Approved :: MIT License",\n		"Operating System :: OS Independent",\n	],\n'
-if required:
-	comand += f"	install_requires={required},\n"
 comand += "	python_requires='>=3.6',\n)"
 
 
@@ -137,7 +236,7 @@ with open(str(folder) + "setup.cfg", 'w') as file:
 	file.write("[egg_info]\ntag_build = \ntag_date = 0")
 
 with open(str(folder) + "MANIFEST.in", 'w') as file:
-	file.write(f"include {path[len(path)-1]}/*")
+	file.write(f"recursive-include {path[len(path)-1]} *")
 
 
 window['text'].update("Generating distribution archives...")
@@ -151,9 +250,9 @@ window.Refresh()
 
 
 if upload_to_pypi:
-	os.system("python -m twine upload dist/* -u " + str(username) + " -p " + str(password))
+	os.system("python -m twine upload dist/* -u " + str(userlogin) + " -p " + str(password))
 else:
-	os.system("python -m twine upload --repository testpypi dist/* -u " + str(username) + " -p " + str(password))
+	os.system("python -m twine upload --repository testpypi dist/* -u " + str(userlogin) + " -p " + str(password))
 
 
 if delete_temp_files:
@@ -162,10 +261,10 @@ if delete_temp_files:
 
 	shutil.rmtree('build')
 	shutil.rmtree("dist")
-	print(str(package_name) + ".egg-info")
 	shutil.rmtree(str(package_name) + ".egg-info")
 	os.remove(str(folder) + "setup.cfg")
 	os.remove(str(folder) + "setup.py")
+	os.remove(str(folder) + "MANIFEST.in")
 
 window['text'].update("Uploaded successfully!")
 window.Refresh()
